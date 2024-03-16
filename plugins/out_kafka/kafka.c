@@ -230,13 +230,15 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
                         flb_warn("Field '%s' not found or not a string value", field_name);
                         }
 
-                    flb_free(field_name); // Free allocated memory
-                    } 
+                    
+                } 
                 else {
                     /* Static header value */
                     rd_kafka_header_add(kafka_headers, hkey->str, flb_sds_len(hkey->str),
                                 hval->str, flb_sds_len(hval->str));
-                }  
+                }
+
+                flb_free(field_name); // Free allocated memory  
             }
         } 
         else {
