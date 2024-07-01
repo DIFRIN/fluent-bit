@@ -48,6 +48,10 @@ static void dummy_mk_http_session_init(struct mk_http_session *session,
 static void dummy_mk_http_request_init(struct mk_http_session *session,
                                        struct mk_http_request *request)
 {
+    if (request->stream.channel != NULL) {
+        mk_stream_release(&request->stream);
+    }
+
     memset(request, 0, sizeof(struct mk_http_request));
 
     mk_http_request_init(session, request, session->server);
@@ -133,6 +137,14 @@ static int http1_session_process_request(struct flb_http1_server_session *sessio
     struct mk_list         *iterator;
     struct mk_http_header  *header;
     int                     result;
+
+    result = flb_http_request_init(&session->stream.request);
+
+    if (result != 0) {
+      return -1;
+    }
+
+    session->stream.request.stream = &session->stream;
 
     if (session->inner_request.uri_processed.data != NULL) {
         session->stream.request.path = \
@@ -446,7 +458,7 @@ int flb_http1_server_session_init(struct flb_http1_server_session *session,
 
     mk_http_parser_init(&session->inner_parser);
 
-    result = flb_http_stream_init(&session->stream, parent, 0, HTTP_STREAM_ROLE_SERVER, 
+    result = flb_http_stream_init(&session->stream, parent, 0, HTTP_STREAM_ROLE_SERVER,
                                   user_data);
 
     if (result != 0) {
@@ -467,11 +479,13 @@ void flb_http1_server_session_destroy(struct flb_http1_server_session *session)
             session->inner_session.channel = NULL;
         }
 
+        flb_http_stream_destroy(&session->stream);
+
         session->initialized = FLB_FALSE;
     }
 }
 
-int flb_http1_server_session_ingest(struct flb_http1_server_session *session, 
+int flb_http1_server_session_ingest(struct flb_http1_server_session *session,
                          unsigned char *buffer, 
                          size_t length)
 {
@@ -494,6 +508,10 @@ int flb_http1_server_session_ingest(struct flb_http1_server_session *session,
 
         http1_evict_request(session);
     }
+
+    dummy_mk_http_request_init(&session->inner_session, &session->inner_request);
+
+    mk_http_parser_init(&session->inner_parser);
 
     return HTTP_SERVER_SUCCESS;   
 }

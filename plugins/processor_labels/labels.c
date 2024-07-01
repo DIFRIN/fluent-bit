@@ -405,11 +405,10 @@ static int cb_init(struct flb_processor_instance *processor_instance,
 }
 
 
-static int cb_exit(struct flb_processor_instance *processor_instance)
+static int cb_exit(struct flb_processor_instance *processor_instance, void *data)
 {
-    if (processor_instance != NULL &&
-        processor_instance->context != NULL) {
-        destroy_context(processor_instance->context);
+    if (processor_instance != NULL && data != NULL) {
+        destroy_context(data);
     }
 
     return FLB_PROCESSOR_SUCCESS;
@@ -1525,26 +1524,27 @@ static int insert_labels(struct cmt *metrics_context,
                                                         pair->key);
 
         if (result == FLB_TRUE) {
-            result = metrics_context_insert_dynamic_label(metrics_context,
-                                                          pair->key,
-                                                          pair->val);
+            continue;
+        }
+
+        result = metrics_context_insert_dynamic_label(metrics_context,
+                                                      pair->key,
+                                                      pair->val);
+
+        if (result == FLB_FALSE) {
+            return FLB_FALSE;
+        }
+
+        result = metrics_context_contains_static_label(metrics_context,
+                                                       pair->key);
+
+        if (result == FLB_TRUE) {
+            result = metrics_context_insert_static_label(metrics_context,
+                                                         pair->key,
+                                                         pair->val);
 
             if (result == FLB_FALSE) {
                 return FLB_FALSE;
-            }
-        }
-        else {
-            result = metrics_context_contains_static_label(metrics_context,
-                                                           pair->key);
-
-            if (result == FLB_FALSE) {
-                result = metrics_context_insert_static_label(metrics_context,
-                                                             pair->key,
-                                                             pair->val);
-
-                if (result == FLB_FALSE) {
-                    return FLB_FALSE;
-                }
             }
         }
     }
